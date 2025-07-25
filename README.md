@@ -16,8 +16,8 @@ The current script supports **two experiment tracks**:
 
 | Section in&nbsp;`main.py` | Strategy / logic                                     | Personalised? |  *k* values asked | Notes |
 |---------------------------|------------------------------------------------------|---------------|-------------------|-------|
-| **5 – 6** (*global pass*) | `random`, `popularity`, `poperror`                   | **No** (single global list) | **10, 25, 50, 100** | Matches Table 1 of the paper |
-| **7** (*SHHP loop*)       | `shhp` – *Single‑Heuristic Highest‑Predicted* (ask 1‑by‑1) | **Yes** (per‑user interview) | **10** (default, editable) | Runs only on the **first 100** cold users, exactly as in WI‑2020 |
+| **5 – 6** (*global pass*) | `random`, `popularity`, `poperror`                   | **No**  | **10, 25, 50, 100** | Matches Table 1 of the paper |
+| **7** (*SHHP loop*)       | `shhp` – *Single‑Heuristic Highest‑Predicted* (ask 1‑by‑1) | **Yes**  | **10** (default, editable) | Runs only on the **first 100** cold users, exactly as in WI‑2020 |
 
 ---
 
