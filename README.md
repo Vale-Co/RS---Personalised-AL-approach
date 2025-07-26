@@ -1,4 +1,4 @@
-# 🎓 Active Learning for Cold-Start Recommendation
+# Active Learning for Cold-Start Recommendation
 
 This repository contains the code used in the Master's thesis project _“Personalised Active Learning Strategies for Cold-Start Recommender Systems”_ by Valentina Conz.
 
@@ -6,7 +6,7 @@ The goal of the project was to explore whether **personalised active learning st
 
 ---
 
-## 🧠 Project Description
+## Project Description
 
 Recommender systems struggle with cold users—new users who have no interaction history. To address this, the thesis evaluates different **active learning strategies** that determine which items to show to cold users in the early stages.
 
@@ -20,7 +20,7 @@ The results show that **SHHP**, though more computationally intensive, can outpe
 
 ---
 
-## 📂 Files
+## Files
 
 - `main.py` — Main script with all experiments
 - `useritemmatrix.csv` — The user-item interaction dataset
@@ -28,7 +28,7 @@ The results show that **SHHP**, though more computationally intensive, can outpe
 
 ---
 
-## 📊 Results
+## Results
 
 The SHHP strategy was evaluated on **100 cold users** (due to compute constraints), while the other strategies used 25% of the cold users. Results show that **personalised item selection leads to better predictions**, validating the value of adaptive cold-start handling.
 
