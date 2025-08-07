@@ -1,6 +1,6 @@
 # Active Learning for Cold-Start Recommendation
 
-This repository contains the code used in the Master's thesis project _“Personalised Active Learning Strategies for Cold-Start Recommender Systems”_ by Valentina Conz.
+This repository contains the code used in the Master's thesis project by Valentina Conz.
 
 The goal of the project was to explore whether **personalised active learning strategies** can outperform non-personalised ones in solving the **cold start problem** in collaborative filtering recommender systems.
 
