@@ -8,7 +8,7 @@ The goal of the project was to explore whether **personalised active learning st
 
 ## Project Description
 
-Recommender systems struggle with cold users—new users who have no interaction history. To address this, the thesis evaluates different **active learning strategies** that determine which items to show to cold users in the early stages.
+Recommender systems struggle with cold users, who are new users who have no interaction history. To address this, the thesis evaluates different **active learning strategies** that determine which items to show to cold users in the early stages.
 
 Four strategies were compared:
 - `random` – selects random items
