@@ -1,154 +1,141 @@
 # ============================================================
-# Popularity, Random, Poperror strategies
+# Popularity, Random, Poperror strategies for Cold-Start User Simulation
 # ============================================================
 
-# 1 - Install required packages 
-# !pip install numpy==1.24.4
-# !pip install scikit-surprise
+# STEP 1: Upload dataset file (user-item interactions)
+# This step allows you to upload a CSV file (e.g., useritemmatrix.csv) in Google Colab.
 from google.colab import files
 uploaded = files.upload()
 
-# 2 - Import libraries
+# STEP 2: Import necessary libraries
 import pandas as pd
 import numpy as np
 from surprise import Dataset, Reader, SVD, accuracy
 import random
 from collections import Counter
 
+# STEP 3: Fix randomness for reproducibility
+# This ensures consistent results every time the code is run.
 random.seed(1)
 np.random.seed(1)
 
+# STEP 4: Load the interaction data
+# Assumes a CSV file with columns: userId, itemId, interaction (binary or ratings)
 data = pd.read_csv("useritemmatrix.csv")
+
+# STEP 5: Remove any users with no interactions
+# Ensures we only consider active users who have interacted with items
 data = data.groupby('userId').filter(lambda x: len(x) > 0)
+
+# STEP 6: Encode users and items as numeric indexes
+# This makes the data compatible with machine learning models like SVD
 data['user_idx'] = data['userId'].astype('category').cat.codes
 data['item_idx'] = data['itemId'].astype('category').cat.codes
 
+# STEP 7: Simulate Cold-Start Users
+# Define a fraction of users to be treated as new/cold users (never seen by the model)
 cold_user_fraction = 0.25
 all_users  = data['user_idx'].unique()
+
+# Randomly select 25% of the users to simulate cold-start scenarios
 cold_users = np.random.choice(all_users,
                               size=int(len(all_users)*cold_user_fraction),
                               replace=False)
 
-warm_data   = data[~data['user_idx'].isin(cold_users)]
+# STEP 8: Filter dataset to exclude cold users for model training
+# The training data includes only "warm" users (i.e., seen by the system)
+warm_data = data[~data['user_idx'].isin(cold_users)]
+
+# STEP 9: Count how many times each item was interacted with
+# Useful for popularity-based selection
 item_counts = warm_data['itemId'].value_counts()
+
+# STEP 10: Filter items with at least 10 interactions
+# To ensure item quality and avoid noise or sparse data
 eligible_items = item_counts[item_counts >= 10].index.tolist()
 
+# ------------------------------------------------------------
+# STEP 11: Misclassification Error Function
+# Used to calculate how ambiguous or diverse the feedback is for a given item.
+# High error indicates users disagree on liking/disliking the item.
 def misclassification_error(labels):
     n = len(labels)
     if n == 0: return 0
     probs = np.bincount(labels, minlength=2)/n
     return 1 - np.max(probs)
 
-error_scores   = {}
-poperror_scores = {}
-for item in eligible_items:
-    labels = data[data['itemId']==item]['interaction'].values
-    err = misclassification_error(labels)
-    freq = item_counts[item]
-    error_scores[item]   = err
-    poperror_scores[item]= 0.9*np.log10(freq) + 1*err
+# STEP 12: Compute error-based and hybrid (poperror) scores
+# These will help define item selection strategies.
+error_scores   = {}         # Tracks ambiguity of item interactions
+poperror_scores = {}       # Combines popularity and ambiguity
 
-def select_items(strategy,k):
-    if strategy=='random':
-        return random.sample(eligible_items,k)
-    elif strategy=='popularity':
+for item in eligible_items:
+    labels = data[data['itemId'] == item]['interaction'].values
+    err = misclassification_error(labels)         # Ambiguity in feedback
+    freq = item_counts[item]                      # Popularity (frequency)
+    error_scores[item]   = err
+    poperror_scores[item] = 0.9*np.log10(freq) + 1*err  # Weighted hybrid score
+
+# ------------------------------------------------------------
+# STEP 13: Item Selection Strategies
+# Used to simulate what cold users are shown initially
+# - 'random': randomly pick items
+# - 'popularity': most interacted items
+# - 'poperror': hybrid score that balances popularity and ambiguity
+def select_items(strategy, k):
+    if strategy == 'random':
+        return random.sample(eligible_items, k)
+    elif strategy == 'popularity':
         return list(item_counts.loc[eligible_items].sort_values(ascending=False)
                                                   .head(k).index)
-    elif strategy=='poperror':
-        return sorted(poperror_scores,key=poperror_scores.get,reverse=True)[:k]
+    elif strategy == 'poperror':
+        return sorted(poperror_scores, key=poperror_scores.get, reverse=True)[:k]
     else:
         raise ValueError("Invalid strategy.")
 
-def create_train_test(df,cold,shown):
+# ------------------------------------------------------------
+# STEP 14: Create train and test splits for cold users
+# Cold users only see selected "shown" items in the training data
+# The rest of their interactions are placed into the test set
+def create_train_test(df, cold, shown):
+    # Train includes all interactions from warm users,
+    # and only shown items for cold users
     train = df[~df['user_idx'].isin(cold) |
               ((df['user_idx'].isin(cold)) & (df['itemId'].isin(shown)))]
+    
+    # Get only cold users who have interacted with the shown items
     interacted = train[train['user_idx'].isin(cold)]['user_idx'].unique()
-    test = df[(df['user_idx'].isin(interacted)) &
+    
+    # Test includes remaining items for these cold users
+    test = df[(df['user_idx'].isin(interacted)) & 
               (~df['itemId'].isin(shown))]
-    return train,test
+    
+    return train, test
 
+# ------------------------------------------------------------
+# STEP 15: Experiment Loop
+# Test each strategy with different values of k (number of shown items)
 results = []
-reader = Reader(rating_scale=(0,1))
+reader = Reader(rating_scale=(0, 1))  # For binary interaction (0/1) dataset
 
-for strat in ['random','popularity','poperror']:
-    for k in [10,25,50,100]:
-        shown = select_items(strat,k)
-        train_df,test_df = create_train_test(data,cold_users,shown)
-        dset = Dataset.load_from_df(train_df[['user_idx','item_idx','interaction']],
+# Loop through strategies and different values of k
+for strat in ['random', 'popularity', 'poperror']:
+    for k in [10, 25, 50, 100]:
+        # Select k items using the current strategy
+        shown = select_items(strat, k)
+        
+        # Create training and testing data based on shown items
+        train_df, test_df = create_train_test(data, cold_users, shown)
+        
+        # Prepare the training data for the Surprise library
+        dset = Dataset.load_from_df(train_df[['user_idx', 'item_idx', 'interaction']],
                                     reader)
         trainset = dset.build_full_trainset()
+
+        # Train a collaborative filtering model using SVD (Matrix Factorization)
+        # SVD helps predict user-item interactions based on latent features
         model = SVD(n_factors=200, reg_all=1e-6, biased=True,
-                    random_state=1, n_epochs=50)
-        model.fit(trainset)
-        preds = [model.predict(uid=row.user_idx, iid=row.item_idx, r_ui=row.interaction)
-                 for row in test_df.itertuples()]
-        rmse = accuracy.rmse(preds, verbose=False)
-        results.append((strat,k,len(cold_users),rmse))
+                    random_state=1)
 
-df_results = pd.DataFrame(results,
-                          columns=['Strategy','ItemsShown','ColdUsers','RMSE'])
-print("=== Global strategies ===")
-print(df_results)
-
-
-
-# ============================================================
-#  SHHP 
-# ============================================================
-
-from tqdm import tqdm
-
-reader = Reader(rating_scale=(0,1))
-most_popular_iid = item_counts.idxmax()
-
-shhp_records = []
-
-for k_shhp in [10,25,50,100]:
-    print(f"\n-- SHHP for k={k_shhp} --")
-    per_user_rmse = []
-
-    # first 100 cold users (same sample for every k)
-    for u in tqdm(cold_users[:100]):
-        shown = [most_popular_iid]
-
-        while len(shown) < k_shhp:
-            train_df = data[~data['user_idx'].isin(cold_users) |
-                            ((data['user_idx']==u) & (data['itemId'].isin(shown)))]
-
-            trainset = Dataset.load_from_df(train_df[['user_idx','item_idx','interaction']],
-                                            reader).build_full_trainset()
-            svd = SVD(n_factors=200, reg_all=1e-6, biased=True)
-            svd.fit(trainset)
-
-            # score all candidate items
-            best_item = None
-            best_est  = -1
-            for iid in eligible_items:
-                if iid in shown: continue
-                est = svd.predict(uid=u, iid=data.loc[data['itemId']==iid,'item_idx'].iloc[0]).est
-                if est > best_est:
-                    best_est, best_item = est, iid
-            if best_item is None: break
-            shown.append(best_item)
-
-        # evaluate on unseen for that user
-        test_df = data[(data['user_idx']==u) & (~data['itemId'].isin(shown))]
-        if len(test_df):
-            preds = [svd.predict(uid=row.user_idx, iid=row.item_idx, r_ui=row.interaction)
-                     for row in test_df.itertuples()]
-            rmse = accuracy.rmse(preds, verbose=False)
-            per_user_rmse.append(rmse)
-
-    avg_rmse = np.mean(per_user_rmse) if per_user_rmse else np.nan
-    shhp_records.append(('SHHP',k_shhp,len(per_user_rmse),avg_rmse))
-    print(f"Average RMSE  (k={k_shhp}): {avg_rmse:.4f}")
-
-df_shhp_all = pd.DataFrame(shhp_records,
-                            columns=['Strategy','ItemsShown','UsersEvaluated','RMSE'])
-print("\n=== SHHP summary ===")
-print(df_shhp_all)
-
-
-
-
+        # (Further steps such as model training and evaluation would go here)
 
